@@ -1,8 +1,5 @@
 from __future__ import annotations
 
-import math
-from dataclasses import dataclass
-
 import torch
 from torch import nn
 
@@ -10,7 +7,7 @@ from cms import CMSBlock
 
 
 class TransformerClassifier(nn.Module):
-    def __init__(self, vocab_size: int, num_classes: int, dim: int = 128, depth: int = 2, nhead: int = 4, max_len: int = 64):
+    def __init__(self, vocab_size: int, num_classes: int, dim: int = 128, depth: int = 2, nhead: int = 4, max_len: int = 128):
         super().__init__()
         self.token_emb = nn.Embedding(vocab_size, dim)
         self.pos_emb = nn.Parameter(torch.zeros(1, max_len, dim))
@@ -29,7 +26,7 @@ class TransformerClassifier(nn.Module):
 
 
 class TransformerCMSClassifier(nn.Module):
-    def __init__(self, vocab_size: int, num_classes: int, dim: int = 128, depth: int = 2, nhead: int = 4, max_len: int = 64):
+    def __init__(self, vocab_size: int, num_classes: int, dim: int = 128, depth: int = 2, nhead: int = 4, max_len: int = 128):
         super().__init__()
         self.token_emb = nn.Embedding(vocab_size, dim)
         self.pos_emb = nn.Parameter(torch.zeros(1, max_len, dim))
