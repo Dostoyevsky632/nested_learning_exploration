@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Iterable, List, Sequence, Tuple
+from typing import List, Sequence
 
 import torch
+from sklearn.datasets import fetch_20newsgroups
+from sklearn.model_selection import train_test_split
 from torch.utils.data import Dataset
 
 
@@ -14,10 +16,11 @@ class TaskData:
     test_texts: Sequence[str]
     test_labels: Sequence[int]
     task_name: str
+    class_names: Sequence[str]
 
 
 class TextTaskDataset(Dataset):
-    def __init__(self, texts: Sequence[str], labels: Sequence[int], vocab: dict[str, int], max_len: int = 64):
+    def __init__(self, texts: Sequence[str], labels: Sequence[int], vocab: dict[str, int], max_len: int = 128):
         self.texts = list(texts)
         self.labels = list(labels)
         self.vocab = vocab
@@ -47,6 +50,48 @@ def build_vocab(task_sets: Sequence[TaskData]) -> dict[str, int]:
     return vocab
 
 
+def load_20newsgroups_continual_tasks(num_tasks: int = 4, test_size: float = 0.2, random_state: int = 42) -> List[TaskData]:
+    data = fetch_20newsgroups(subset="all", remove=("headers", "footers", "quotes"))
+    texts = data.data
+    labels = data.target
+    class_names = list(data.target_names)
+
+    unique_labels = list(range(len(class_names)))
+    labels_per_task = len(unique_labels) // num_tasks
+    tasks: List[TaskData] = []
+
+    for task_idx in range(num_tasks):
+        start = task_idx * labels_per_task
+        end = len(unique_labels) if task_idx == num_tasks - 1 else (task_idx + 1) * labels_per_task
+        task_labels = set(unique_labels[start:end])
+
+        task_texts = [t for t, y in zip(texts, labels) if y in task_labels]
+        task_y = [y for y in labels if y in task_labels]
+
+        remapped = {old: new for new, old in enumerate(sorted(task_labels))}
+        task_y = [remapped[y] for y in task_y]
+        train_texts, test_texts, train_labels, test_labels = train_test_split(
+            task_texts,
+            task_y,
+            test_size=test_size,
+            random_state=random_state,
+            stratify=task_y,
+        )
+
+        tasks.append(
+            TaskData(
+                train_texts=train_texts,
+                train_labels=train_labels,
+                test_texts=test_texts,
+                test_labels=test_labels,
+                task_name=f"20ng_task_{task_idx + 1}",
+                class_names=[class_names[i] for i in sorted(task_labels)],
+            )
+        )
+
+    return tasks
+
+
 def toy_continual_tasks() -> List[TaskData]:
     return [
         TaskData(
@@ -65,6 +110,7 @@ def toy_continual_tasks() -> List[TaskData]:
                 "card was stolen",
             ],
             test_labels=[0, 1, 2, 3],
+            class_names=["reset_pin", "balance", "transfer", "lost_card"],
         ),
         TaskData(
             task_name="task_2_travel",
@@ -82,5 +128,6 @@ def toy_continual_tasks() -> List[TaskData]:
                 "search for low cost flights",
             ],
             test_labels=[0, 1, 2, 3],
+            class_names=["book_flight", "change_hotel", "cancel_trip", "cheap_tickets"],
         ),
     ]
