@@ -11,7 +11,7 @@ import torch
 from torch import nn
 from torch.utils.data import DataLoader
 
-from dataset import TextTaskDataset, build_vocab, load_20newsgroups_continual_tasks, toy_continual_tasks
+from dataset import TextTaskDataset, build_vocab, load_local_archive_continual_tasks, toy_continual_tasks
 from model import TransformerCMSClassifier, TransformerClassifier
 
 
@@ -126,7 +126,8 @@ def plot_results(save_dir: Path, results: List[TaskResult], model_name: str) -> 
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--cms", action="store_true", help="Use Transformer + CMS instead of baseline Transformer")
-    parser.add_argument("--toy", action="store_true", help="Use the toy dataset instead of 20 Newsgroups")
+    parser.add_argument("--toy", action="store_true", help="Use the toy dataset instead of the local archive")
+    parser.add_argument("--archive-dir", type=str, default=r"..\archive", help="Relative path to the local dataset archive")
     parser.add_argument("--epochs", type=int, default=5)
     parser.add_argument("--batch-size", type=int, default=16)
     parser.add_argument("--lr", type=float, default=1e-3)
@@ -135,7 +136,7 @@ def main() -> None:
     parser.add_argument("--save-dir", type=str, default="results")
     args = parser.parse_args()
 
-    tasks = toy_continual_tasks() if args.toy else load_20newsgroups_continual_tasks(num_tasks=args.num_tasks)
+    tasks = toy_continual_tasks() if args.toy else load_local_archive_continual_tasks(archive_dir=args.archive_dir, num_tasks=args.num_tasks)
     vocab = build_vocab(tasks)
     num_classes = max(max(task.train_labels + task.test_labels) for task in tasks) + 1
 
