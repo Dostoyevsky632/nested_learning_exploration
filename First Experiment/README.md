@@ -109,8 +109,8 @@ If this first experiment is promising, the next experiments can add:
 
 ## Status
 
-- [ ] Define exact dataset and task split
-- [ ] Implement baseline Transformer
-- [ ] Implement Transformer + CMS
+- [✅️ ] Define exact dataset and task split
+- [✅️ ] Implement baseline Transformer
+- [✅️ ] Implement Transformer + CMS
 - [ ] Run continual learning evaluation
 - [ ] Compare metrics and analyze forgetting
