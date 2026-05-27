@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 import argparse
+import csv
+import json
 from dataclasses import dataclass
-from typing import List, Sequence
+from pathlib import Path
+from typing import List
 
 import torch
 from torch import nn
@@ -65,6 +68,61 @@ def build_task_loaders(tasks, vocab, max_len: int, batch_size: int):
     return loaders
 
 
+def save_results(save_dir: Path, results: List[TaskResult], model_name: str) -> None:
+    save_dir.mkdir(parents=True, exist_ok=True)
+
+    json_path = save_dir / f"{model_name}_results.json"
+    csv_path = save_dir / f"{model_name}_results.csv"
+
+    payload = [
+        {
+            "task_name": r.task_name,
+            "train_loss": r.train_loss,
+            "test_acc": r.test_acc,
+            "seen_task_accs": r.seen_task_accs,
+        }
+        for r in results
+    ]
+    json_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+
+    rows = []
+    for r in results:
+        row = {"task_name": r.task_name, "train_loss": r.train_loss, "test_acc": r.test_acc}
+        for k, v in r.seen_task_accs.items():
+            row[f"acc_{k}"] = v
+        rows.append(row)
+
+    fieldnames = sorted({key for row in rows for key in row.keys()})
+    with csv_path.open("w", newline="", encoding="utf-8") as f:
+        writer = csv.DictWriter(f, fieldnames=fieldnames)
+        writer.writeheader()
+        writer.writerows(rows)
+
+
+def plot_results(save_dir: Path, results: List[TaskResult], model_name: str) -> None:
+    import matplotlib.pyplot as plt
+
+    save_dir.mkdir(parents=True, exist_ok=True)
+    tasks = [r.task_name for r in results]
+    accs = [r.test_acc for r in results]
+    losses = [r.train_loss for r in results]
+
+    fig, ax1 = plt.subplots(figsize=(8, 4))
+    ax1.plot(tasks, accs, marker="o", label="test_acc")
+    ax1.set_ylabel("Accuracy")
+    ax1.set_ylim(0.0, 1.0)
+    ax1.tick_params(axis="x", rotation=30)
+
+    ax2 = ax1.twinx()
+    ax2.plot(tasks, losses, marker="s", color="orange", label="train_loss")
+    ax2.set_ylabel("Loss")
+
+    fig.suptitle(f"{model_name} continual learning results")
+    fig.tight_layout()
+    fig.savefig(save_dir / f"{model_name}_summary.png", dpi=200)
+    plt.close(fig)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--cms", action="store_true", help="Use Transformer + CMS instead of baseline Transformer")
@@ -74,6 +132,7 @@ def main() -> None:
     parser.add_argument("--lr", type=float, default=1e-3)
     parser.add_argument("--max-len", type=int, default=128)
     parser.add_argument("--num-tasks", type=int, default=4)
+    parser.add_argument("--save-dir", type=str, default="results")
     args = parser.parse_args()
 
     tasks = toy_continual_tasks() if args.toy else load_20newsgroups_continual_tasks(num_tasks=args.num_tasks)
@@ -126,6 +185,13 @@ def main() -> None:
     print("\nSummary")
     print(f"  avg_task_acc={avg_acc:.4f}")
     print(f"  avg_forgetting={forgetting:.4f}")
+
+    save_dir = Path(args.save_dir) / ("cms" if args.cms else "baseline")
+    save_results(save_dir, results, "cms" if args.cms else "baseline")
+    try:
+        plot_results(save_dir, results, "cms" if args.cms else "baseline")
+    except Exception as exc:
+        print(f"Plotting skipped: {exc}")
 
 
 if __name__ == "__main__":
