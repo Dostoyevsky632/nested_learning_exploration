@@ -65,11 +65,10 @@ def load_20newsgroups_continual_tasks(num_tasks: int = 4, test_size: float = 0.2
         end = len(unique_labels) if task_idx == num_tasks - 1 else (task_idx + 1) * labels_per_task
         task_labels = set(unique_labels[start:end])
 
-        task_texts = [t for t, y in zip(texts, labels) if y in task_labels]
-        task_y = [y for y in labels if y in task_labels]
+        task_pairs = [(t, y) for t, y in zip(texts, labels) if y in task_labels]
+        task_texts = [t for t, _ in task_pairs]
+        task_y = [y for _, y in task_pairs]
 
-        remapped = {old: new for new, old in enumerate(sorted(task_labels))}
-        task_y = [remapped[y] for y in task_y]
         train_texts, test_texts, train_labels, test_labels = train_test_split(
             task_texts,
             task_y,
